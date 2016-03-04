@@ -1,0 +1,10 @@
+awk '{print int((NR+1)/2) " " $0}' phiave.dat > mydata
+
+require(coda)
+ts.uncorr <- arima.sim(model=list(),n=10000)         # white noise 
+ts.corr <- arima.sim(model=list(ar=-0.5),n=10000)    # AR(1)
+effectiveSize(ts.uncorr)                             # Sanity check
+    # result should be close to 10000
+effectiveSize(ts.corr)
+    # result is in the neighborhood of 30000... ???
+
