@@ -8,11 +8,10 @@
 
 using namespace std;
 
-const int DIM   = 4;  // number of lattice dimensions     
+const int DIM   = 3;  // number of lattice dimensions     
 const int DIR_T = 0;  // indices for directions
 const int DIR_X = 1;  
 const int DIR_Y = 2;
-const int DIR_Z = 3;
 
 const int NEW_RUN = 0;  // permits to restart from an old field configuration
 const int RESTART = 1;  
@@ -26,11 +25,8 @@ int **nnp;
 int **nnn;
 
 // parameters of the model
-// f0 is the initial field value (cold start)
-// f : field
-// G : phi^2 term
-// H : phi^4 term
 double G, H, J, f0;         
+double lambda, alpha, beta, r;
 
 // lattice extent variables 
 int L, VOL;
@@ -49,7 +45,7 @@ double action( double* field );
 void   eval_force( double* f_array, double* field );
 
 // lattice geometry
-int  coord_to_index( int t, int x, int y, int z );  // find site index from coordinates
+int  coord_to_index( int t, int x, int y);  // find site index from coordinates
 void init_lattice(); // assign the table of nearest neighbours
 
 // calculation of some observables
@@ -84,33 +80,41 @@ int main( int argc, char *argv[])
   int status;
 
   // take values of parameters from the command line
-  if ( argc != 11 ){
-    cerr << "usage : <L> <G> <H> <J> <f0> <nconf> <nequil> <dt> <md_steps> <run_status(new:0, restart:1)>\n";
+  if ( argc != 15 ){
+    cerr << "usage : <L> <G> <H> <lambda> <alpha> <beta> <r> <J> <f0> <nconf> <nequil> <dt> <md_steps> <run_status(new:0, restart:1)>\n";
     exit(-1);
   }
   
   L          = atoi(argv[1]);  
   G          = atof(argv[2]);
   H          = atof(argv[3]);
-  J          = atof(argv[4]);
-  f0         = atof(argv[5]);
-  nconf      = atoi(argv[6]);
-  nequil     = atoi(argv[7]);
-  dt         = atof(argv[8]);
-  md_steps   = atoi(argv[9]);
-  run_status = atoi(argv[10]);
+  lambda     = atof(argv[4]);
+  alpha      = atof(argv[5]);
+  beta       = atof(argv[6]);
+  r          = atof(argv[7]);
+  J          = atof(argv[8]);
+  f0         = atof(argv[9]);
+  nconf      = atoi(argv[10]);
+  nequil     = atoi(argv[11]);
+  dt         = atof(argv[12]);
+  md_steps   = atoi(argv[13]);
+  run_status = atoi(argv[14]);
  
   // evaluate lattice volume
-  VOL = L*L*L*L;
+  VOL = L*L*L;
   
   // unit of momenta
   p_unit = 2.0 * M_PI / L;
 
   // display simulation parameters on screen
   cout << "\nRUN PARAMETERS:\n\n";
-  cout << "VOL    : " << L << " x " << L <<  " x " << L << " x " << L << "\n";
+  cout << "VOL    : " << L << " x " << L <<  " x " << L << "\n";
   cout << "G      : " << G << "\n";
   cout << "H      : " << H << "\n";
+  cout << "lambda : " << lambda << "\n";
+  cout << "alpha  : " << alpha << "\n";
+  cout << "beta   : " << beta << "\n";
+  cout << "r      : " << r << "\n";
   cout << "J      : " << J << "\n";
   cout << "f0     : " << f0 << "\n";
   cout << "nconf  : " << nconf << "\n"; 
@@ -318,10 +322,10 @@ double gaussian_rg()
 }
 
 
-inline int coord_to_index( int t, int x, int y, int z )
+inline int coord_to_index( int t, int x, int y)
 {
   // return the site index from the coordinates (t, x, y) 
-  return t + L*x + L*L*y + L*L*L*z;
+  return t + L*x + L*L*y;
 }
 
 
@@ -335,29 +339,24 @@ void init_lattice() {
     nnp[a] = new int[DIM]; // one n.n for each pos. dir. for each lattice point (a)
     nnn[a] = new int[DIM]; // one n.n for each neg. dir. for each lattice point (a)
     
-    // extract the coordinates (t, x, y, z) from the site index
-    int t, x, y, z, b;
+    // extract the coordinates (t, x, y) from the site index
+    int t, x, y, b;
     t = a % L;
     b = a / L;
     x = b % L;
     b = a / (L*L);
     y = b % L;
-    b = a / (L*L*L);
-    z = b % L;
     
     // identify nearest neighbours implementing periodic b.c.
 
-    nnp[a][DIR_T] = t == (L-1) ? coord_to_index(0, x, y, z)   : coord_to_index(t+1, x, y, z);
-    nnn[a][DIR_T] = t == 0     ? coord_to_index(L-1, x, y, z) : coord_to_index(t-1, x, y, z);
+    nnp[a][DIR_T] = t == (L-1) ? coord_to_index(0, x, y)   : coord_to_index(t+1, x, y);
+    nnn[a][DIR_T] = t == 0     ? coord_to_index(L-1, x, y) : coord_to_index(t-1, x, y);
 
-    nnp[a][DIR_X] = x == (L-1) ? coord_to_index(t, 0, y, z)   : coord_to_index(t, x+1, y, z);
-    nnn[a][DIR_X] = x == 0     ? coord_to_index(t, L-1, y, z) : coord_to_index(t, x-1, y, z);
+    nnp[a][DIR_X] = x == (L-1) ? coord_to_index(t, 0, y)   : coord_to_index(t, x+1, y);
+    nnn[a][DIR_X] = x == 0     ? coord_to_index(t, L-1, y) : coord_to_index(t, x-1, y);
 
-    nnp[a][DIR_Y] = y == (L-1) ? coord_to_index(t, x, 0, z)   : coord_to_index(t, x, y+1, z);
-    nnn[a][DIR_Y] = y == 0     ? coord_to_index(t, x, L-1, z) : coord_to_index(t, x, y-1, z);
-
-    nnp[a][DIR_Z] = z == (L-1) ? coord_to_index(t, x, y, 0)   : coord_to_index(t, x, y, z+1);
-    nnn[a][DIR_Z] = z == 0     ? coord_to_index(t, x, y, L-1) : coord_to_index(t, x, y, z-1);
+    nnp[a][DIR_Y] = y == (L-1) ? coord_to_index(t, x, 0)   : coord_to_index(t, x, y+1);
+    nnn[a][DIR_Y] = y == 0     ? coord_to_index(t, x, L-1) : coord_to_index(t, x, y-1);
 
   }
 }
@@ -372,7 +371,9 @@ double action( double* field )
     f = field[a];
     S += DIM * f * f;
     for(int mu=0; mu<DIM; mu++) S -= f * field[nnp[a][mu]];
-    S += 0.5*G*f*f + 0.25*H*f*f*f*f + J*f;
+    S += 0.5*G*f*f + 0.25*H*f*f*f*f;
+    S += lambda * exp(alpha*f*f/2.0) * (beta*f*f + 1.0 - r);
+    S += J*f;
   }
   return S;
 }
@@ -384,7 +385,9 @@ void eval_force( double* f_array, double* field )
 
   for(int a=0; a<VOL; a++){
     f = field[a];
-    f_array[a] = -2*DIM*f - G*f - H*f*f*f - J;
+    f_array[a] = -2*DIM*f - J;
+    f_array[a] -= G*f * H*f*f*f;
+    f_array[a] -= lambda * exp(alpha*f*f/2.0) * (alpha*f*(beta*f*f + 1.0 - r) + 2.0*beta*f);
     for(int mu=0;mu<DIM;mu++){
       f_array[a] += field[nnp[a][mu]] + field[nnn[a][mu]];
     }   
