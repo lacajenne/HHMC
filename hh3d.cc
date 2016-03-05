@@ -13,8 +13,7 @@ const int DIR_T = 0;  // indices for directions
 const int DIR_X = 1;  
 const int DIR_Y = 2;
 
-const int NEW_RUN = 0;  // permits to restart from an old field configuration
-const int RESTART = 1;  
+const int NEW_RUN = 0;  
 const int REJECT  = 0;  // Metropolis 
 const int ACCEPT  = 1;
 
@@ -365,7 +364,6 @@ double action( double* field )
 {
   double S = 0.0;
   double f;
-  double tb;
 
   for(int a=0; a<VOL; a++){
     f = field[a];
@@ -386,7 +384,7 @@ void eval_force( double* f_array, double* field )
   for(int a=0; a<VOL; a++){
     f = field[a];
     f_array[a] = -2*DIM*f - J;
-    f_array[a] -= G*f * H*f*f*f;
+    f_array[a] -= G*f + H*f*f*f;
     f_array[a] -= lambda * exp(alpha*f*f/2.0) * (alpha*f*(beta*f*f + 1.0 - r) + 2.0*beta*f);
     for(int mu=0;mu<DIM;mu++){
       f_array[a] += field[nnp[a][mu]] + field[nnn[a][mu]];
