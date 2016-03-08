@@ -70,7 +70,9 @@ int main( int argc, char *argv[])
   // correlator data
   FILE *corr_file;
   char file_name_corr[128];
-  
+  sprintf(file_name_corr, "corr.dat");
+  corr_file = fopen(file_name_corr, "w");
+
   // HMC variables
   double E, En, dE, S, Sn;
   double dt;
@@ -213,11 +215,34 @@ int main( int argc, char *argv[])
 	sprintf(logfile, "phiave.dat");
 	Log(logbuf, logfile);
 
-      }
+	// correlator data
+	double cdata[L];
+	for(int t=0; t<L; t++) {
+	  cdata[t] = 0.0;
+	  for(int x=0; x<L; x++) {
+	    for(int y=0; y<L; y++) {
+	      int ind = coord_to_index(t, x, y);
+	      cdata[t] += field[ind] * field[0];
+	    }
+	  }
+	}
+	
+	// save folded correlated data
+	for(int t=0; t < L/2-1 ; t++) {
+	  cdata[t] = 0.5 * (cdata[t] + cdata[L-1-t]);
+	  fprintf(corr_file, "%f\t", cdata[t]);
+	}
+	fprintf(corr_file, "\n");
+	
+     }
     }
 
   }
   
+  // close the correlator file propery
+  fflush(corr_file);
+  fclose(corr_file);
+
   // save the last field configuration on file
   sprintf(latfile, "latconf.dat");
   SaveLattice(field, latfile);
